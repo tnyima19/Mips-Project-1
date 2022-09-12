@@ -1,0 +1,177 @@
+
+#CSCI 260
+#Date : 21 March 2022
+
+
+#c1, should be full red and c2 should be full green
+#The above figure is shown for c1 being full red adn c2 being full green, but your code should of course use 
+#whatever colorsa re in projInput. the inner and outer squares have side lengths and m and n respectively, and are perfectly centered in the yellow bitmap.
+.data
+
+frameBuffer: .space 0x80000
+m: 	     	.word 150 # c2 
+n:	     	.word 59 #  c1
+c1r: 	     .word 0x00FF0000   ##RRGGbb
+c1g:         .word 0x00000000
+c1b:         .word 0x0
+c2r:         .word 0x00000000
+c2g:         .word 0x0000FF00
+c2b:         .word 0x00000000
+
+
+.text
+# use for loops, for green adn red box,
+
+#your program should check the values of projInput
+#Important question how do I centre the square in the (Note that the figure is not exactly centrer able (even if its half a pixel) counts as 'not possible'/An inner square 
+#bigger han an outer square is also not possible', and you can gifure out other bad cases. Depeding onyou display, your squares might be slightly elongates, bt taht is 
+#fine as the intent is to draw square fo pixels. 
+
+lw $t3, c2r # t3<- c2r
+lw $t1, c2g # t1 <- c2g
+lw $t2, c2b # t2 <- c2b
+or $t2, $t2, $t1 # t2 <- c2b | c2g
+or $t2, $t2, $t3 # t2 <- (c2b |c2g) | c2r
+
+
+lw $t1,c1r # t1<- c1r
+lw $s2,c1g # s2 <- c1g
+lw $t3, c1b # t3 <- c1b
+or $s2, $s2, $t1 # s2<- (c1g | clr)  
+or $s2, $s2, $t3 # s2 <- (c1g | c1r) | c1b
+
+
+drawLine: la $t1, frameBuffer
+	li $s0, 131072 # total = 512 * 256 pixels
+	
+	
+	add $t5, $zero, $zero # t5 <- i 
+	addi $t6, $zero, 0 # t6 <- 0 
+	  li $s5, 0x00FFFF00 #yellow background 
+	  lo: beq, $t5, $s0, L1 #when length = i jump exit  
+	  add $t7, $t1, $t6 
+	  sw $s5, 0($t7) #insert color into the pixel
+	  addi $t6 , $t6, 4 # $t6 <- $t6 + 4 
+	  addi $t5, $t5 ,1 # i <- i+1 
+	  j lo
+	  
+	
+L1: li $a0, 256 # x min
+lw $s0, m # c2
+li $a2, 128 # y min
+lw $s1, n # c1
+add $s5, $t2, $zero #s5 <- (c1r | c1b| c1g)  color initialization 
+ 
+li $s4, 0x800 # total number of pixels in a row
+li $s3, 0 #k =0
+
+
+# values to shift towards the centre
+srl $t7, $s0, 1 #  t7 <- m/2
+sll $t6, $t7, 2 # t6 <- m/2 * 2^2 
+sll $t7, $t7, 11 # t7 <- m/2 * 2^11 
+
+
+#put color for c2
+add $a1, $s0, $a0 # max xvalue   ---------------- a1 =  m + 256 
+add $a3, $s0, $a2 #max y value  0-------------------a3 =  m + 128 
+sll $a0, $a0, 2 # 200 * 4        ----------------------- a0 = 256 * 4 ----------------------x co-ordinate
+sll $a1, $a1, 2 # (256 +50) * 4     ---------------------------a1 = (m+256) * 4
+sll $a2, $a2, 11 # shift by 2^11 becuase one row = 2^11 bits. --------------------a2 = 128 * 2^11
+sll $a3, $a3, 11 # shift by 2^11 --------------------------------------a3 = (128+ m) * 2^11
+add $t2, $a2, $t1 #---------------------------------------------t2 = (128 * 2^11) + framebuffer
+add $a3, $a3, $t1 #------------------------------------------------------a3 = (128 +m)* 2^11 + framebuffer
+add $a2, $t2, $a0 # left top point of rectangle ---------------------a2  = (128 * 2^11 ) + framebuffer + (256 * 4)
+add $a3, $a3, $a0 # bottom left corner       ----------------------a3 = (128 + m) * 2^11 + framebuffer + (256* 4)
+add $t2, $t2, $a1 # end of the rows ---------------t2 <- (128 * 2^11) + frameBuffer + (m + 256) * 4
+sub $t2, $t2, $t6 # adjust toward centre ------t2 <- (128 * 2^11) + frameBuffer + (m + 256) * 4 + (m/2 * 2^2)
+sub $t2, $t2, $t7 #adjust toward centre ------- t2<- (128 * 2^11) + frameBuffer + (m + 256) * 4 +(m/2 * 2^2) + (m/2 * 2^11)
+sub $a2, $a2, $t6 # a2<- (128 * 2^11 ) + framebuffer + (256 * 4) + (m/2 * 2^2)
+sub $a2, $a2, $t7 # a2 <- ((128 * 2^11 ) + framebuffer + (256 * 4) + (m/2 * 2^2))+ (m/2 * 2^11)
+sub $a3, $a3, $t6 #a3<- (128 + m) * 2^11 + framebuffer + (256* 4) +(m/2 * 2^2)
+sub $a3, $a3, $t7 #a3 <- ((128 + m) * 2^11 + framebuffer + (256* 4) +(m/2 * 2^2))+ (m/2 * 2^11)
+add $s7, $a2,$zero # s7 <- (((128 * 2^11 ) + framebuffer + (256 * 4) + (m/2 * 2^2))+ (m/2 * 2^11) + (m/2 * 2^2))+ (m/2 * 2^11)
+add $s6, $t2, $zero #s7 <- s6 <- (128 * 2^11) + frameBuffer + (m + 256) * 4 +(m/2 * 2^2) + (m/2 * 2^11)
+
+j ycol
+
+l2:
+#make diagonal
+beq $s3,1, l5 # If k = 1 go to l5
+add $t4, $s7, $zero 
+li $s5, 0x00000000 #black color for diagonal
+li $t2, 0 # i = 0 
+loop:beq $t2, $s0, l4 # if i = m go to l4
+add $t4, $t4, $s4 # exactly next row right below the pixel ------ $t4 = $t4 + 0x800
+addi $t4, $t4, 4  # current pixel + 1 ----------$t4 = $t4 + 1
+sw $s5, 0($t4)  # black color in the pixel 
+addi $t2, $t2, 1 # i = i + 1
+j loop
+
+l4:
+add $t4, $s6, $zero
+li $t5, 0 # i =0 
+loop2:beq $t5, $s0, l5 # if i = m go to l5
+add $t4, $t4, $s4 # go to next row $t4 = $t4 + 0x800
+subi $t4, $t4, 4  # go one pixel back , because gradient = -1
+sw $s5, 0($t4) 
+addi $t5, $t5, 1 # i  = i+ 1
+j loop2
+
+
+
+#put color for c1
+l5:li $a0, 256
+li $a2, 128
+
+
+addi $s3, $s3, 1 
+add $s5, $s2, $zero #red
+
+srl $t7, $s1, 1
+sll $t6, $t7, 2 # shift by x axis
+sll $t7, $t7, 11 # shift by y axis 
+
+add $a1, $s1, $a0 # max xvalue   ---------------- a1 =  n + 256 
+add $a3, $s1, $a2 #max y value  0-------------------a3 =  n + 128 
+sll $a0, $a0, 2 # 200 * 4        ----------------------- a0 = 256 * 4
+sll $a1, $a1, 2 # (200+50) * 4     ---------------------------a1 = n * 4
+sll $a2, $a2, 11 # shift by 2^11 becuase one row = 2^11 bits. --------------------a2 = 128 * 2^11
+sll $a3, $a3, 11 # shift by 2^11 --------------------------------------a3 = (128+ n) * 2^11
+add $t2, $a2, $t1 #---------------------------------------------t2 = (128 * 2^11) + framebuffer
+add $a3, $a3, $t1 #------------------------------------------------------a3 = (128 +n)* 2^11 + framebuffer
+add $a2, $t2, $a0 # left top point of rectangle ---------------------a2  = (128 * 2^11 ) + framebuffer + (256 * 4)
+add $a3, $a3, $a0 # bottom left corner       ----------------------a3 = (128 + n) * 2^11 + framebuffer + (256* 4)
+add $t2, $t2, $a1 # end of the rows ---------------t2 <- (128 * 2^11) + frameBuffer + (n + 256) * 4
+sub $t2, $t2, $t6 # adjust toward centre ------t2 <- (128 * 2^11) + frameBuffer + (n + 256) * 4 + (n/2 * 2^2)
+sub $t2, $t2, $t7 #adjust toward centre ------- t2<- (128 * 2^11) + frameBuffer + (n + 256) * 4 +(n/2 * 2^2) + (n/2 * 2^11)
+sub $a2, $a2, $t6 # adjust a2 towards the centre ---------a2<- (128 * 2^11 ) + framebuffer + (256 * 4) + (n/2 * 2^2)
+sub $a2, $a2, $t7  # adjust towards teh centre a2 <- ((128 * 2^11 ) + framebuffer + (256 * 4) + (n/2 * 2^2))+ (n/2 * 2^11)
+sub $a3, $a3, $t6 #adjust towards the centre a3<- (128 + n) * 2^11 + framebuffer + (256* 4) +(n/2 * 2^2)
+sub $a3, $a3, $t7 # adjust toward the center  a3 <- ((128 + n) * 2^11 + framebuffer + (256* 4) +(n/2 * 2^2))+ (n/2 * 2^11)
+
+j ycol
+
+
+
+
+
+l3:li $v0,10
+syscall
+
+ycol: add $t4, $zero, $a2 #t4 left top point,
+
+xrow: beq $t4, $t2, l1  #----------------- $t2 end of row
+sw $s5, 0($t4)
+addi $t4, $t4, 4 # go next pixel 
+
+j xrow
+ 
+ 
+l1:
+add $a2, $a2, $s4 # a2 is the start of next row  + 0x800
+add $t2, $t2, $s4 #t2 <- t2 + 0x800 go to the end of next row 
+bne, $a2, $a3, ycol # ----------------------------------a3 is end of column or (m<- height of square)
+beq , $s3, 1, l3 #if k = 1 go to l3 Exit
+j l2  # jump to making diagonal after making square
+
